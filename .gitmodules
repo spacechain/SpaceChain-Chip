@@ -1,0 +1,15 @@
+[submodule "jcore-cpu"]
+	path = jcore-cpu
+	url = https://github.com/spacechain/jcore-cpu.git
+[submodule "bootrom"]
+	path = bootrom
+	url = https://github.com/spacechain/bootrom.git
+[submodule "gnss-baseband"]
+	path = gnss-baseband
+	url = https://github.com/spacechain/gnss-baseband.git
+[submodule "jcore-soc"]
+	path = jcore-soc
+	url = https://github.com/spacechain/jcore-soc.git
+[submodule "jcore-jx"]
+	path = jcore-jx
+	url = https://github.com/spacechain/jcore-jx.git
