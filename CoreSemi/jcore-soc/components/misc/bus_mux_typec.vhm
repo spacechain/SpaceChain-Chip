@@ -1,0 +1,188 @@
+library ieee;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
+
+use work.cpu2j0_pack.all;
+-- use work.cpu2j0_components_pack.all;
+use work.bus_mux_typec_pack.all;
+use work.dma_pack.all;
+
+entity bus_mux_typec is -- bus multiplexer between cpu and dma
+  port (
+  clk           : in   std_logic;
+  rst           : in   std_logic;
+
+  m1_o          : out  cpu_data_i_t;
+  m1_ack_r      : out  std_logic;
+  m1_ddrburst   : in   std_logic;
+  m1_lock       : in   std_logic;
+  m1_i          : in   cpu_data_o_t;
+
+  m2_o          : out  cpu_data_i_t;
+  m2_ack_r      : out  std_logic;
+  m2_ddrburst   : in   std_logic;
+  m2_i          : in   cpu_data_o_t;
+
+  m3_o          : out  cpu_data_i_t;
+  m3_ack_r      : out  std_logic;
+  m3_ddrburst   : in   std_logic;
+  m3_lock       : in   std_logic;
+  m3_i          : in   cpu_data_o_t;
+
+  m4_o          : out  cpu_data_i_t;
+  m4_ack_r      : out  std_logic;
+  m4_ddrburst   : in   std_logic;
+  m4_i          : in   cpu_data_o_t;
+
+  m5_o          : out  bus_ddr_i_t;
+  m5_i          : in   bus_ddr_o_t;
+  mem_o         : out  cpu_data_o_t;
+  mem_ddrburst  : out  std_logic;
+  mem_i         : in   cpu_data_i_t;
+  mem_ack_r     : in   std_logic
+      );
+end entity bus_mux_typec;
+
+-- connection 
+-- m1 cpu0 data
+-- m2 cpu0 inst
+-- m3 cpu1 data
+-- m4 cpu1 inst
+-- m5 dma
+
+architecture beh of bus_mux_typec is
+register variable this : bus_mux_typec_reg_t reset := BUS_MUX_TYPEC_REG_RESET;
+    signal nx_count_woack_sig : std_logic_vector( 2 downto  0);
+    signal m6_o         :      cpu_data_o_t;
+    signal m6_ddrburst  :      std_logic;
+    signal m6_i         :      cpu_data_i_t;
+    signal m6_ack_r     :      std_logic;
+begin
+    bus_mux_typec : process (this, m1_i, m1_ddrburst, m1_lock, m2_i, m2_ddrburst, m3_i, m3_ddrburst, m3_lock, m4_i, m4_ddrburst, m5_i,  mem_i, mem_ack_r , m6_o, m6_ddrburst  );
+
+    register this when clk='1' and clk'event reset when rst='1';
+
+    variable nx                      : bus_mux_typec_reg_t;
+  begin
+
+    -- main state machine -----------------------------------------------------
+    if(this.count /= b"000") or
+      ((this.mem_o.en = '1') and (this.mem_ack = '0')) then 
+                                       nx.state_busarbc := this.state_busarbc;
+    elsif(m5_i.bgrp = '1') then        nx.state_busarbc := M5;
+    else
+      case this.state_busarbc is
+      when M5 => 
+        if(m6_o.en = '1') then         nx.state_busarbc := M6;
+        else                           nx.state_busarbc := M5; end if;
+      when others => -- M6
+        if(m5_i.en = '1') then         nx.state_busarbc := M5;
+        else                           nx.state_busarbc := M6; end if;
+      end case;
+    end if;
+
+  -- mem input/output selector
+    -- initial value start
+    m5_o.ack        <= '0';
+    m6_i.ack        <= '0';
+    m6_ack_r        <= '0';
+    nx.ddrburst     := '0';
+    nx.dmaburst16   := '0';
+    nx.dmaburst16at := '0';
+    nx.mem_o        := NULL_DATA_O;
+    -- initial value end
+    case nx.state_busarbc is
+    when M5 =>
+      nx.mem_o := to_cpu_data(m5_i);
+      nx.ddrburst := m5_i.burst32;
+      nx.dmaburst16 := m5_i.burst16;
+      if(m5_i.en = '1') then
+        if(this.count = b"000") then nx.dmaburst16at := m5_i.burst16;
+        else                         nx.dmaburst16at := this.dmaburst16at;
+        end if;
+      else                           nx.dmaburst16at := '0';
+      end if;
+                     m5_o.ack <= mem_i.ack;
+    when others => -- M6
+      nx.mem_o    := m6_o;
+      nx.ddrburst := m6_ddrburst;
+                     m6_i.ack   <= mem_i.ack;
+                     m6_ack_r <= mem_ack_r  ;
+    end case;
+
+
+  -- create nx_count (nx_count_woack + mem_i.ack)
+    if(mem_i.ack = '1') then
+      if(this.count /= b"000") then           nx.count :=
+                     std_logic_vector(unsigned(this.count) + 1); -- loop 8 or 4
+        if(this.dmaburst16at = '1') then      nx.count(2) := '0'; -- loop 4
+        end if;
+      elsif(nx.ddrburst = '1') or
+           (nx.dmaburst16 = '1') then         nx.count := b"001";
+      else                                    nx.count := b"000";
+      end if;
+    else                                      nx.count := this.count;
+    end if;
+  -- end of nx_count ------
+
+    this.state_busarbc       := nx.state_busarbc;
+--  this.state_busarbc_round := nx.state_busarbc_round;
+    this.ddrburst            := nx.ddrburst;
+    this.dmaburst16          := nx.dmaburst16;
+    this.dmaburst16at        := nx.dmaburst16at;
+--  this.valid_accmem        := nx.valid_accmem;
+    this.mem_o               := nx.mem_o;
+    this.mem_ack             := mem_i.ack;
+    this.count               := nx.count;
+  end process;
+
+  mux_m6 : bus_mux_typecsub port map (
+    clk           => clk           ,
+    rst           => rst           ,
+  
+    m1_o          => m1_o          ,
+    m1_ack_r      => m1_ack_r      ,
+    m1_ddrburst   => m1_ddrburst   ,
+    m1_lock       => m1_lock       ,
+    m1_i          => m1_i          ,
+  
+    m2_o          => m2_o          ,
+    m2_ack_r      => m2_ack_r      ,
+    m2_ddrburst   => m2_ddrburst   ,
+    m2_i          => m2_i          ,
+  
+    m3_o          => m3_o          ,
+    m3_ack_r      => m3_ack_r      ,
+    m3_ddrburst   => m3_ddrburst   ,
+    m3_lock       => m3_lock       ,
+    m3_i          => m3_i          ,
+  
+    m4_o          => m4_o          ,
+    m4_ack_r      => m4_ack_r      ,
+    m4_ddrburst   => m4_ddrburst   ,
+    m4_i          => m4_i          ,
+  
+    m5_o          => open          ,
+    m5_i          => (
+           en       => '0', wr => '0',
+           a        => (others => '0'),
+           d        => (others => '0'),
+           we       => (others => '0'),
+           burst32  => '0',
+           burst16  => '0',
+           bgrp     => '0'),
+    mem_o         => m6_o         ,
+    mem_ddrburst  => m6_ddrburst  ,
+    mem_i         => m6_i         ,
+    mem_ack_r     => m6_ack_r     );
+
+  mem_o        <= this'combinatorial.mem_o;
+  mem_ddrburst <= this'combinatorial.ddrburst;
+--  m1_o.d <= mem_i.d;
+--  m2_o.d <= mem_i.d;
+--  m3_o.d <= mem_i.d;
+--  m4_o.d <= mem_i.d;
+  m5_o.d <= mem_i.d;
+  m6_i.d <= mem_i.d;
+
+end beh;

@@ -1,15 +1,15 @@
-[submodule "jcore-cpu"]
-	path = jcore-cpu
+[submodule "CoreSemi/jcore-cpu"]
+	path = CoreSemi/jcore-cpu
 	url = https://github.com/spacechain/jcore-cpu.git
-[submodule "bootrom"]
-	path = bootrom
+[submodule "CoreSemi/bootrom"]
+	path = CoreSemi/bootrom
 	url = https://github.com/spacechain/bootrom.git
-[submodule "gnss-baseband"]
-	path = gnss-baseband
+[submodule "CoreSemi/gnss-baseband"]
+	path = CoreSemi/gnss-baseband
 	url = https://github.com/spacechain/gnss-baseband.git
-[submodule "jcore-soc"]
-	path = jcore-soc
+[submodule "CoreSemi/jcore-soc"]
+	path = CoreSemi/jcore-soc
 	url = https://github.com/spacechain/jcore-soc.git
-[submodule "jcore-jx"]
-	path = jcore-jx
+[submodule "CoreSemi/jcore-jx"]
+	path = CoreSemi/jcore-jx
 	url = https://github.com/spacechain/jcore-jx.git
