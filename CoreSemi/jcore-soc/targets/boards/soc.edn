@@ -1,3 +1,0 @@
-;; Additional children added to the soc node in the device tree.
-{:dt-children
-  []}

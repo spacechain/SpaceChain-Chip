@@ -1,3 +1,0 @@
-#! /bin/csh -f
-
-sh2-uclinux-gcc -Wall -Werror -Wno-error=unused-value -S cpu0_int_proto.c

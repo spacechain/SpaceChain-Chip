@@ -1,3 +1,0 @@
-Libraries that (perhaps multiple) components depend on.
-
-For components (e.g. CPU, DSP, Ring Bus...) see ../components

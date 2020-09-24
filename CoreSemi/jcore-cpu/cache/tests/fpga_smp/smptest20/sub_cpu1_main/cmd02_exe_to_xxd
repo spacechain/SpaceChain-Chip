@@ -1,3 +1,0 @@
-#! /bin/csh -f
-
-cat cpu1_main | xxd > sm20c1a.xxd
