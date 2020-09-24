@@ -1,3 +1,0 @@
-#! /bin/csh -f
-
-cat cpu1_main | xxd > sm07c1a.xxd
